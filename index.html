@@ -114,31 +114,46 @@
         const errorEl = document.getElementById("gateError");
         let encPromise = null;
 
-        function loadEnc() {
-          if (!encPromise) {
-            encPromise = fetch("bank.enc", { cache: "no-store" }).then((r) => {
-              if (!r.ok) throw new Error("找不到題庫檔 bank.enc");
-              return r.text();
-            });
-          }
-          return encPromise;
+        function setStatus(msg, isError) {
+          errorEl.textContent = msg || "";
+          errorEl.style.color = isError ? "" : "var(--muted)"; // 空字串=用 CSS 預設(紅色)
         }
 
-        function b64ToBytes(b64) {
-          const bin = atob(b64.trim());
-          const out = new Uint8Array(bin.length);
-          for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+        async function fetchEncBytes(onProgress) {
+          const resp = await fetch("bank.enc");
+          if (!resp.ok) throw new Error("找不到題庫檔 bank.enc");
+          const total = Number(resp.headers.get("Content-Length")) || 0;
+          if (!resp.body || !total) {
+            return new Uint8Array(await resp.arrayBuffer());
+          }
+          const reader = resp.body.getReader();
+          const chunks = [];
+          let received = 0;
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            received += value.length;
+            if (onProgress) onProgress(received / total);
+          }
+          const out = new Uint8Array(received);
+          let offset = 0;
+          for (const c of chunks) { out.set(c, offset); offset += c.length; }
           return out;
         }
 
-        async function decrypt(password, encText) {
+        function loadEnc(onProgress) {
+          if (!encPromise) encPromise = fetchEncBytes(onProgress);
+          return encPromise;
+        }
+
+        async function decryptToText(password, bytes) {
           if (!(window.crypto && window.crypto.subtle)) {
             throw new Error("此瀏覽器環境不支援解密（需 https 或 localhost）");
           }
-          const packed = b64ToBytes(encText);
-          const salt = packed.slice(0, 16);
-          const iv = packed.slice(16, 28);
-          const body = packed.slice(28); // ciphertext + 16-byte auth tag
+          const salt = bytes.slice(0, 16);
+          const iv = bytes.slice(16, 28);
+          const body = bytes.slice(28); // ciphertext + 16-byte auth tag
           const baseKey = await crypto.subtle.importKey(
             "raw",
             new TextEncoder().encode(password),
@@ -153,8 +168,9 @@
             false,
             ["decrypt"]
           );
-          const plainBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, body);
-          return new TextDecoder().decode(plainBuf);
+          const gzBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, body); // gzip 位元組
+          const stream = new Blob([gzBuf]).stream().pipeThrough(new DecompressionStream("gzip"));
+          return await new Response(stream).text();
         }
 
         function boot(quizDataText) {
@@ -170,26 +186,28 @@
           document.body.appendChild(s); // app.js 讀 window.QUIZ_DATA 並自動 init()
         }
 
+        const progress = (p) => setStatus("載入題庫中… " + Math.round(p * 100) + "%", false);
+
         form.addEventListener("submit", async (e) => {
           e.preventDefault();
           const pw = pwInput.value.trim(); // 與加密端一致：去除前後空白
           if (!pw) return;
           btn.disabled = true;
-          errorEl.textContent = "解密中…";
           try {
-            const encText = await loadEnc(); // 先確認題庫檔載入成功
-            const text = await decrypt(pw, encText);
-            errorEl.textContent = "";
+            const bytes = await loadEnc(progress); // 下載題庫（顯示進度）
+            setStatus("解密中…", false);
+            const text = await decryptToText(pw, bytes);
+            setStatus("", false);
             boot(text);
           } catch (err) {
             if (err && err.name === "OperationError") {
-              errorEl.textContent = "密碼錯誤（區分大小寫，注意大小寫與空白）。";
+              setStatus("密碼錯誤（區分大小寫，注意大小寫與空白）。", true);
             } else if (err && String(err.message || "").includes("bank.enc")) {
-              errorEl.textContent = "題庫檔載入失敗，請重新整理再試。";
+              setStatus("題庫檔載入失敗，請重新整理再試。", true);
             } else if (err && String(err.message || "").includes("不支援")) {
-              errorEl.textContent = "此瀏覽器不支援解密，請改用較新的瀏覽器。";
+              setStatus("此瀏覽器不支援解密，請改用較新的瀏覽器。", true);
             } else {
-              errorEl.textContent = "開啟失敗：" + (err && err.message ? err.message : "未知錯誤");
+              setStatus("開啟失敗：" + (err && err.message ? err.message : "未知錯誤"), true);
             }
             btn.disabled = false;
             pwInput.select();
@@ -202,8 +220,10 @@
           pwInput.focus();
         });
 
-        // 預先抓 bank.enc，加快解鎖
-        loadEnc().catch(() => {});
+        // 一進頁面就開始下載題庫並顯示進度，避免按下後像卡住；載完清掉狀態
+        loadEnc(progress)
+          .then(() => { if (!window.QUIZ_DATA) setStatus("", false); })
+          .catch(() => {});
         pwInput.focus();
       })();
     </script>
