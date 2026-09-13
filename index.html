@@ -13,9 +13,10 @@
         <h1>初等考題庫練習</h1>
         <p>此題庫受密碼保護，請輸入密碼開啟。</p>
         <form id="gateForm" class="gate-row" autocomplete="off">
-          <input id="gatePw" type="password" inputmode="text" placeholder="輸入密碼" aria-label="密碼" />
+          <input id="gatePw" type="password" inputmode="text" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="輸入密碼" aria-label="密碼" />
           <button id="gateBtn" class="gate-btn" type="submit">開啟</button>
         </form>
+        <label class="gate-show"><input type="checkbox" id="gateShow" /> 顯示密碼</label>
         <div class="gate-error" id="gateError" role="alert"></div>
       </div>
     </div>
@@ -130,11 +131,11 @@
           return out;
         }
 
-        async function decrypt(password) {
+        async function decrypt(password, encText) {
           if (!(window.crypto && window.crypto.subtle)) {
             throw new Error("此瀏覽器環境不支援解密（需 https 或 localhost）");
           }
-          const packed = b64ToBytes(await loadEnc());
+          const packed = b64ToBytes(encText);
           const salt = packed.slice(0, 16);
           const iv = packed.slice(16, 28);
           const body = packed.slice(28); // ciphertext + 16-byte auth tag
@@ -171,19 +172,34 @@
 
         form.addEventListener("submit", async (e) => {
           e.preventDefault();
-          const pw = pwInput.value;
+          const pw = pwInput.value.trim(); // 與加密端一致：去除前後空白
           if (!pw) return;
           btn.disabled = true;
           errorEl.textContent = "解密中…";
           try {
-            const text = await decrypt(pw);
+            const encText = await loadEnc(); // 先確認題庫檔載入成功
+            const text = await decrypt(pw, encText);
             errorEl.textContent = "";
             boot(text);
           } catch (err) {
-            errorEl.textContent = "密碼錯誤，或題庫檔載入失敗。";
+            if (err && err.name === "OperationError") {
+              errorEl.textContent = "密碼錯誤（區分大小寫，注意大小寫與空白）。";
+            } else if (err && String(err.message || "").includes("bank.enc")) {
+              errorEl.textContent = "題庫檔載入失敗，請重新整理再試。";
+            } else if (err && String(err.message || "").includes("不支援")) {
+              errorEl.textContent = "此瀏覽器不支援解密，請改用較新的瀏覽器。";
+            } else {
+              errorEl.textContent = "開啟失敗：" + (err && err.message ? err.message : "未知錯誤");
+            }
             btn.disabled = false;
             pwInput.select();
           }
+        });
+
+        // 顯示／隱藏密碼
+        document.getElementById("gateShow").addEventListener("change", (e) => {
+          pwInput.type = e.target.checked ? "text" : "password";
+          pwInput.focus();
         });
 
         // 預先抓 bank.enc，加快解鎖

@@ -622,3 +622,17 @@ select:disabled {
   font-size: 13px;
   min-height: 18px;
 }
+#gate .gate-show {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+#gate .gate-show input {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+}
