@@ -636,3 +636,7 @@ select:disabled {
   min-height: 0;
   margin: 0;
 }
+/* 修正：hidden 屬性要能覆蓋 #gate 的 display:flex（否則解鎖後關卡不會消失） */
+[hidden] {
+  display: none !important;
+}
