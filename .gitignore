@@ -1,0 +1,5 @@
+# 只發佈靜態網站需要的檔；工具與明文題庫留在本機
+encrypt-bank.mjs
+questions-data.js
+*.bak
+*.bak_*

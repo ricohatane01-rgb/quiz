@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>初等考題庫練習</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <!-- 密碼關卡 -->
+    <div id="gate">
+      <div class="gate-card">
+        <h1>初等考題庫練習</h1>
+        <p>此題庫受密碼保護，請輸入密碼開啟。</p>
+        <form id="gateForm" class="gate-row" autocomplete="off">
+          <input id="gatePw" type="password" inputmode="text" placeholder="輸入密碼" aria-label="密碼" />
+          <button id="gateBtn" class="gate-btn" type="submit">開啟</button>
+        </form>
+        <div class="gate-error" id="gateError" role="alert"></div>
+      </div>
+    </div>
+
+    <!-- 主應用（解密成功後才顯示） -->
+    <div id="app-root" hidden>
+      <header class="app-header">
+        <div>
+          <h1>初等考題庫練習</h1>
+          <p id="bankSummary"></p>
+        </div>
+        <div class="score-chip" id="modeSummary">練習模式</div>
+      </header>
+
+      <main class="app-shell">
+        <aside class="control-panel">
+          <section>
+            <label class="field-label">模式</label>
+            <div class="segmented" role="tablist" aria-label="模式">
+              <button class="mode-button active" data-mode="practice" type="button">練習</button>
+              <button class="mode-button" data-mode="history" type="button">歷年試題</button>
+              <button class="mode-button" data-mode="random" type="button">隨機</button>
+              <button class="mode-button" data-mode="exam" type="button">模擬考</button>
+            </div>
+          </section>
+
+          <section>
+            <label class="field-label" for="subjectSelect">科目</label>
+            <select id="subjectSelect"></select>
+          </section>
+
+          <section class="type-settings" id="typeSettings">
+            <label class="field-label" for="typeSelect">題型</label>
+            <select id="typeSelect">
+              <option value="all">全部題型</option>
+              <option value="單選題">單選題</option>
+              <option value="複選題">複選題</option>
+            </select>
+          </section>
+
+          <section class="exam-settings" id="examSettings">
+            <label class="field-label">題數</label>
+            <div class="fixed-note" id="examCount">固定 50 題</div>
+          </section>
+
+          <section class="practice-settings" id="practiceSettings">
+            <label class="field-label" for="practiceCount">題數</label>
+            <select id="practiceCount">
+              <option value="5">5 題</option>
+              <option value="10">10 題</option>
+              <option value="15">15 題</option>
+              <option value="20">20 題</option>
+              <option value="25">25 題</option>
+              <option value="30">30 題</option>
+              <option value="35">35 題</option>
+              <option value="40">40 題</option>
+              <option value="45">45 題</option>
+              <option value="50" selected>50 題</option>
+            </select>
+          </section>
+
+          <section class="history-settings" id="historySettings">
+                <label class="field-label" for="yearSelect">年度／場次</label>
+            <select id="yearSelect"></select>
+            <label class="field-label history-count-label">題數</label>
+            <div class="fixed-note" id="historyCount">—</div>
+          </section>
+
+          <section class="action-stack">
+            <button id="primaryAction" class="primary-action" type="button">開始練習</button>
+            <button id="secondaryAction" class="secondary-action" type="button">重設作答</button>
+          </section>
+
+          <section class="filter-stats" id="filterStats"></section>
+        </aside>
+
+        <section class="quiz-panel">
+          <div class="toolbar">
+            <button id="prevUnit" type="button" class="icon-button" aria-label="上一頁">‹</button>
+            <div id="unitProgress"></div>
+            <button id="nextUnit" type="button" class="icon-button" aria-label="下一頁">›</button>
+          </div>
+          <div id="quizContent" class="quiz-content"></div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      // 密碼關卡 + 題庫解密（AES-256-GCM / PBKDF2-SHA256）。全部在瀏覽器本地完成，密碼不會送到任何伺服器。
+      (function () {
+        const ITER = 200000;
+        const form = document.getElementById("gateForm");
+        const pwInput = document.getElementById("gatePw");
+        const btn = document.getElementById("gateBtn");
+        const errorEl = document.getElementById("gateError");
+        let encPromise = null;
+
+        function loadEnc() {
+          if (!encPromise) {
+            encPromise = fetch("bank.enc", { cache: "no-store" }).then((r) => {
+              if (!r.ok) throw new Error("找不到題庫檔 bank.enc");
+              return r.text();
+            });
+          }
+          return encPromise;
+        }
+
+        function b64ToBytes(b64) {
+          const bin = atob(b64.trim());
+          const out = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+          return out;
+        }
+
+        async function decrypt(password) {
+          if (!(window.crypto && window.crypto.subtle)) {
+            throw new Error("此瀏覽器環境不支援解密（需 https 或 localhost）");
+          }
+          const packed = b64ToBytes(await loadEnc());
+          const salt = packed.slice(0, 16);
+          const iv = packed.slice(16, 28);
+          const body = packed.slice(28); // ciphertext + 16-byte auth tag
+          const baseKey = await crypto.subtle.importKey(
+            "raw",
+            new TextEncoder().encode(password),
+            "PBKDF2",
+            false,
+            ["deriveKey"]
+          );
+          const key = await crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt, iterations: ITER, hash: "SHA-256" },
+            baseKey,
+            { name: "AES-GCM", length: 256 },
+            false,
+            ["decrypt"]
+          );
+          const plainBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, body);
+          return new TextDecoder().decode(plainBuf);
+        }
+
+        function boot(quizDataText) {
+          const json = quizDataText
+            .replace(/^﻿/, "")
+            .replace(/^\s*window\.QUIZ_DATA\s*=\s*/, "")
+            .replace(/;\s*$/, "");
+          window.QUIZ_DATA = JSON.parse(json);
+          document.getElementById("gate").hidden = true;
+          document.getElementById("app-root").hidden = false;
+          const s = document.createElement("script");
+          s.src = "app.js";
+          document.body.appendChild(s); // app.js 讀 window.QUIZ_DATA 並自動 init()
+        }
+
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const pw = pwInput.value;
+          if (!pw) return;
+          btn.disabled = true;
+          errorEl.textContent = "解密中…";
+          try {
+            const text = await decrypt(pw);
+            errorEl.textContent = "";
+            boot(text);
+          } catch (err) {
+            errorEl.textContent = "密碼錯誤，或題庫檔載入失敗。";
+            btn.disabled = false;
+            pwInput.select();
+          }
+        });
+
+        // 預先抓 bank.enc，加快解鎖
+        loadEnc().catch(() => {});
+        pwInput.focus();
+      })();
+    </script>
+  </body>
+</html>
