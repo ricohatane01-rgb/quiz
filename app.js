@@ -108,10 +108,16 @@ function shouldIgnoreTypeFilter() {
   return state.mode === "random" || isSubmissionMode();
 }
 
+// 舊法題（官方答案在現行法下已不成立）只出現在歷年試題，不進練習／隨機／模擬考
+function isDrillable(question) {
+  return !question.outdatedNote;
+}
+
 function filteredQuestions(options = {}) {
   const subject = els.subjectSelect.value;
   const type = options.ignoreType ? "all" : els.typeSelect.value;
   return DATA.questions.filter((question) => {
+    if (!isDrillable(question)) return false;
     if (subject !== "all" && question.subject !== subject) return false;
     if (type !== "all" && question.type !== type) return false;
     return true;
@@ -291,7 +297,9 @@ function selectUnitsForQuestionCount(units, target) {
 }
 
 function examQuestionsForSubject(subject) {
-  return DATA.questions.filter((question) => subject === "all" || question.subject === subject);
+  return DATA.questions.filter(
+    (question) => isDrillable(question) && (subject === "all" || question.subject === subject)
+  );
 }
 
 function buildCivicsEnglishExam() {
@@ -401,10 +409,15 @@ function updateStats() {
   const questions = filteredQuestions({ ignoreType: shouldIgnoreTypeFilter() });
   const units = buildUnits(questions);
   const grouped = units.filter((unit) => unit.questions.length > 1).length;
+  const subject = els.subjectSelect.value;
+  const outdated = DATA.questions.filter(
+    (question) => !isDrillable(question) && (subject === "all" || question.subject === subject)
+  ).length;
   const lines = [
     `目前範圍：${questions.length} 題`,
     `題組：${grouped} 組`,
   ];
+  if (outdated) lines.push(`舊法題：已排除 ${outdated} 題（僅於歷年試題出現）`);
   if (state.mode === "practice") {
     lines.push(`題型：${els.typeSelect.value === "all" ? "全部題型" : els.typeSelect.value}`);
   }
@@ -578,6 +591,11 @@ function renderOptionAnalysis(question) {
   `;
 }
 
+function renderOutdatedNote(question) {
+  if (!question.outdatedNote) return "";
+  return `<div class="outdated-note">現行法提醒：${formatText(question.outdatedNote)}</div>`;
+}
+
 function renderFeedback(question) {
   const revealed = state.revealed[question.id] || state.examSubmitted;
   if (!revealed) return "";
@@ -585,6 +603,7 @@ function renderFeedback(question) {
     return `
       <div class="feedback neutral">
         <strong>本題一律給分。</strong>
+        ${renderOutdatedNote(question)}
         <div class="explanation">${formatText(question.explanation)}</div>
         ${renderOptionAnalysis(question)}
       </div>
@@ -596,6 +615,7 @@ function renderFeedback(question) {
   return `
     <div class="feedback ${tone}">
       <strong>${headline}</strong>
+      ${renderOutdatedNote(question)}
       <div class="explanation">${formatText(question.explanation)}</div>
       ${renderOptionAnalysis(question)}
     </div>
@@ -618,7 +638,9 @@ function renderQuestion(question) {
         <span class="meta-pill">${escapeHtml(question.subject)}</span>
         <span class="meta-pill">${escapeHtml(modeLabel)}</span>
         ${year}
+        ${question.outdatedNote ? `<span class="meta-pill outdated-pill">舊法題</span>` : ""}
       </div>
+      ${question.outdatedNote ? `<div class="outdated-banner">舊法題：相關法規已修正，本題依當年官方答案計分；現行法差異於作答後說明。</div>` : ""}
       <div class="stem">${formatText(question.stem)}</div>
       <div class="options">${question.options.map((option) => renderOption(question, option)).join("")}</div>
       ${shouldShowCheck ? `
