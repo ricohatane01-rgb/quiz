@@ -537,35 +537,6 @@ function renderOption(question, option) {
   `;
 }
 
-function explanationFocus(question) {
-  const text = (question.explanation || "").replace(/\s+/g, " ").trim();
-  const withoutLaw = text.split("現行法規註記")[0].split("參考來源")[0].trim();
-  const sentences = withoutLaw.match(/[^。！？]+[。！？]/g) || [withoutLaw];
-  return sentences.slice(0, 2).join("").trim();
-}
-
-function optionReason(question, option) {
-  const manualReason = question.optionAnalysis?.[option.key];
-  if (manualReason) return manualReason;
-
-  if (question.giveAll) {
-    return "官方答案為一律給分，此題不再區分各選項對錯。";
-  }
-
-  const isAnswer = question.answer.includes(option.key);
-  const focus = explanationFocus(question);
-  if (isAnswer) {
-    return `本題答案。${focus || "此選項最符合題幹條件與官方答案。"}`;
-  }
-
-  const answerText = answerLabel(question);
-  const base =
-    question.answerMode === "multiple"
-      ? `不是本題答案。複選題必須符合所有正確條件，官方答案沒有包含 ${option.key}，表示此選項和題幹條件或核心概念不合。`
-      : `不是本題答案。單選題只取最符合題意者，本題答案是 ${answerText}，${option.key} 選項未符合題幹的關鍵條件。`;
-  return focus ? `${base}判斷重點：${focus}` : base;
-}
-
 function renderOptionAnalysis(question) {
   if (!question.options.length) return "";
   const items = question.options
@@ -576,8 +547,8 @@ function renderOptionAnalysis(question) {
         <li class="${className}">
           <span class="analysis-key">${escapeHtml(option.key)}</span>
           <div>
-            <strong>${isAnswer ? "本題答案" : "不是本題答案"}：${formatText(option.text)}</strong>
-            <p>${formatText(optionReason(question, option))}</p>
+            <strong>${question.giveAll ? "一律給分" : isAnswer ? "本題答案" : "不是本題答案"}：${formatText(option.text)}</strong>
+            <p>${formatText(question.optionAnalysis?.[option.key] || "")}</p>
           </div>
         </li>
       `;
