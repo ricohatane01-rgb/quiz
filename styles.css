@@ -657,9 +657,11 @@ select:disabled {
   cursor: pointer;
 }
 #gate .gate-show input {
+  flex: none; /* 不要被 #gate input 的 flex:1 撐寬，方框才會緊貼文字 */
   width: auto;
   min-height: 0;
   margin: 0;
+  padding: 0;
 }
 /* 修正：hidden 屬性要能覆蓋 #gate 的 display:flex（否則解鎖後關卡不會消失） */
 [hidden] {
