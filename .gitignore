@@ -1,5 +1,4 @@
-# 只發佈靜態網站需要的檔；工具與明文題庫留在本機
-encrypt-bank.mjs
+﻿# quiz-web 由 quiz-app/tools/build_web.py 產生，請勿直接手改；明文題庫不可發佈
 questions-data.js
 *.bak
 *.bak_*

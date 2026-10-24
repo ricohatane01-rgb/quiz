@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>初等考題庫練習</title>
-    <link rel="stylesheet" href="./styles.css?v=4" />
+    <link rel="stylesheet" href="./styles.css?v=da1384458b" />
   </head>
   <body>
     <!-- 密碼關卡 -->
@@ -120,7 +120,7 @@
         }
 
         async function fetchEncBytes(onProgress) {
-          const resp = await fetch("bank.enc?v=3");
+          const resp = await fetch("bank.enc?v=a0d78b7574");
           if (!resp.ok) throw new Error("找不到題庫檔 bank.enc");
           const total = Number(resp.headers.get("Content-Length")) || 0;
           if (!resp.body || !total) {
@@ -182,7 +182,7 @@
           document.getElementById("gate").hidden = true;
           document.getElementById("app-root").hidden = false;
           const s = document.createElement("script");
-          s.src = "app.js?v=3";
+          s.src = "app.js?v=b06b9e7bc6";
           document.body.appendChild(s); // app.js 讀 window.QUIZ_DATA 並自動 init()
         }
 
