@@ -34,7 +34,7 @@
       <main class="app-shell">
         <aside class="control-panel">
           <section>
-            <label class="field-label">模式</label>
+            <span class="field-label">模式</span>
             <div class="segmented" role="tablist" aria-label="模式">
               <button class="mode-button active" data-mode="practice" type="button">練習</button>
               <button class="mode-button" data-mode="history" type="button">歷年試題</button>
@@ -58,7 +58,7 @@
           </section>
 
           <section class="exam-settings" id="examSettings">
-            <label class="field-label">題數</label>
+            <span class="field-label">題數</span>
             <div class="fixed-note" id="examCount">固定 50 題</div>
           </section>
 
@@ -79,9 +79,9 @@
           </section>
 
           <section class="history-settings" id="historySettings">
-                <label class="field-label" for="yearSelect">年度／場次</label>
+            <label class="field-label" for="yearSelect">年度／場次</label>
             <select id="yearSelect"></select>
-            <label class="field-label history-count-label">題數</label>
+            <span class="field-label history-count-label">題數</span>
             <div class="fixed-note" id="historyCount">—</div>
           </section>
 
@@ -182,7 +182,7 @@
           document.getElementById("gate").hidden = true;
           document.getElementById("app-root").hidden = false;
           const s = document.createElement("script");
-          s.src = "app.js?v=bda5605a3e";
+          s.src = "app.js?v=cdd71014ef";
           document.body.appendChild(s); // app.js 讀 window.QUIZ_DATA 並自動 init()
         }
 

@@ -146,19 +146,32 @@ function questionHistorySessions(question, dataIndex) {
   return sessions;
 }
 
+// 各科的歷年場次與其題目（依原題號排序）只計算一次；題庫資料不會變動，可安全快取
+const historyIndexCache = new Map();
+
+function historyIndex(subject) {
+  if (!historyIndexCache.has(subject)) {
+    const sessions = new Map();
+    DATA.questions.forEach((question, dataIndex) => {
+      if (question.subject !== subject) return;
+      questionHistorySessions(question, dataIndex).forEach((entry) => {
+        if (!sessions.has(entry.id)) {
+          sessions.set(entry.id, { ...entry, count: 0, items: [] });
+        }
+        const session = sessions.get(entry.id);
+        session.count += 1;
+        session.items.push({ question, order: entry.order, dataIndex });
+      });
+    });
+    sessions.forEach((session) => session.items.sort((a, b) => a.order - b.order || a.dataIndex - b.dataIndex));
+    historyIndexCache.set(subject, sessions);
+  }
+  return historyIndexCache.get(subject);
+}
+
 function availableHistorySessions(subject = els.subjectSelect.value) {
   if (subject === "all") return [];
-  const sessions = new Map();
-  DATA.questions.forEach((question, dataIndex) => {
-    if (question.subject !== subject) return;
-    questionHistorySessions(question, dataIndex).forEach((entry) => {
-      if (!sessions.has(entry.id)) {
-        sessions.set(entry.id, { ...entry, count: 0 });
-      }
-      sessions.get(entry.id).count += 1;
-    });
-  });
-  return [...sessions.values()].sort(
+  return [...historyIndex(subject).values()].sort(
     (a, b) => Number(b.year) - Number(a.year) || a.day - b.day || a.label.localeCompare(b.label, "zh-Hant")
   );
 }
@@ -171,15 +184,8 @@ function historicalQuestions() {
   const subject = els.subjectSelect.value;
   const sessionId = els.yearSelect.value;
   if (subject === "all" || !sessionId) return [];
-  return DATA.questions
-    .map((question, dataIndex) => {
-      if (question.subject !== subject) return null;
-      const session = questionHistorySessions(question, dataIndex).find((entry) => entry.id === sessionId);
-      return session ? { question, order: session.order, dataIndex } : null;
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.order - b.order || a.dataIndex - b.dataIndex)
-    .map((item) => item.question);
+  const session = historyIndex(subject).get(sessionId);
+  return session ? session.items.map((item) => item.question) : [];
 }
 
 function buildUnits(questions) {
@@ -208,13 +214,13 @@ function summarizeUnitValue(units, key, fallback) {
   return values.length === 1 ? values[0] : fallback;
 }
 
-function makePracticePage(pageNumber, units) {
+// 把一或多個題目單位組成一個畫面頁；題組文章統一放在 passages
+function makePage(id, order, title, units) {
   return {
-    id: `practice-page-${pageNumber}`,
-    order: pageNumber - 1,
+    id,
+    order,
     subject: summarizeUnitValue(units, "subject", "多科目"),
-    title: `第 ${pageNumber} 頁`,
-    passage: "",
+    title,
     passages: units
       .filter((unit) => unit.passage)
       .map((unit) => ({ title: unit.title, text: unit.passage })),
@@ -229,7 +235,7 @@ function packPracticePages(units) {
 
   const flushPending = () => {
     if (!pending.length) return;
-    pages.push(makePracticePage(pages.length + 1, pending));
+    pages.push(makePage(`practice-page-${pages.length + 1}`, pages.length, `第 ${pages.length + 1} 頁`, pending));
     pending = [];
     pendingCount = 0;
   };
@@ -238,12 +244,11 @@ function packPracticePages(units) {
     const size = unit.questions.length;
     if (size >= PRACTICE_PAGE_SIZE) {
       flushPending();
-      pages.push({
-        ...unit,
-        id: `practice-page-${pages.length + 1}-${unit.id}`,
-        order: pages.length,
-        title: unit.title || `第 ${pages.length + 1} 頁`,
-      });
+      pages.push(
+        makePage(`practice-page-${pages.length + 1}-${unit.id}`, pages.length, unit.title || `第 ${pages.length + 1} 頁`, [
+          unit,
+        ])
+      );
       return;
     }
 
@@ -467,7 +472,8 @@ function startPractice() {
 function drawRandomUnit() {
   resetWork();
   const units = buildUnits(filteredQuestions({ ignoreType: true }));
-  state.units = units.length ? [units[Math.floor(Math.random() * units.length)]] : [];
+  const unit = units[Math.floor(Math.random() * units.length)];
+  state.units = unit ? [makePage(unit.id, 0, unit.title, [unit])] : [];
   state.currentIndex = 0;
   render();
 }
@@ -657,16 +663,12 @@ function renderUnit() {
 
   const questionCount = unit.questions.length;
   const title = questionCount > 1 ? unit.title : unit.questions[0].id;
-  const passage = unit.passages?.length
-    ? unit.passages
-        .map(
-          (item) =>
-            `<section class="passage-box"><h2 class="passage-title">${escapeHtml(item.title)}</h2><div class="passage-text">${formatText(item.text)}</div></section>`
-        )
-        .join("")
-    : unit.passage
-      ? `<section class="passage-box"><h2 class="passage-title">${escapeHtml(title)}</h2><div class="passage-text">${formatText(unit.passage)}</div></section>`
-      : "";
+  const passage = unit.passages
+    .map(
+      (item) =>
+        `<section class="passage-box"><h2 class="passage-title">${escapeHtml(item.title)}</h2><div class="passage-text">${formatText(item.text)}</div></section>`
+    )
+    .join("");
   els.quizContent.innerHTML = [
     renderExamResult(),
     `<div class="unit-header">
@@ -680,15 +682,6 @@ function renderUnit() {
     ...unit.questions.map(renderQuestion),
     renderSubmitRow(),
   ].join("");
-
-  els.quizContent.querySelectorAll("[data-answer]").forEach((button) => {
-    button.addEventListener("click", () => toggleAnswer(button.dataset.answer, button.dataset.key));
-  });
-  els.quizContent.querySelectorAll("[data-check]").forEach((button) => {
-    button.addEventListener("click", () => revealQuestion(button.dataset.check));
-  });
-  const submit = document.getElementById("submitExam");
-  if (submit) submit.addEventListener("click", submitExam);
 
   els.unitProgress.textContent = `${state.currentIndex + 1} / ${state.units.length}`;
   els.prevUnit.disabled = state.currentIndex <= 0;
@@ -729,6 +722,20 @@ function init() {
   els.typeSelect.addEventListener("change", resetAndRender);
   els.practiceCount.addEventListener("change", resetAndRender);
   els.yearSelect.addEventListener("change", resetAndRender);
+  // 題目區只綁一次點擊（事件委派），重繪時不必重新綁定各按鈕
+  els.quizContent.addEventListener("click", (event) => {
+    const answer = event.target.closest("[data-answer]");
+    if (answer) {
+      if (!answer.disabled) toggleAnswer(answer.dataset.answer, answer.dataset.key);
+      return;
+    }
+    const check = event.target.closest("[data-check]");
+    if (check) {
+      if (!check.disabled) revealQuestion(check.dataset.check);
+      return;
+    }
+    if (event.target.closest("#submitExam")) submitExam();
+  });
   els.primaryAction.addEventListener("click", primaryAction);
   els.secondaryAction.addEventListener("click", resetAndRender);
   els.prevUnit.addEventListener("click", () => {
