@@ -580,7 +580,7 @@ function renderOption(question, option) {
 // 詳解依行首【標籤】分段：【答案】不重複顯示（上方已有對錯與正確答案）；重點段落直接展開並排在前面，
 // 其餘（法規依據、名詞補充、白話文、翻譯、參考資料）預設收合；題組的【全文翻譯】改在文章下方顯示一次。
 const EXPLANATION_HIDDEN_TAGS = new Set(["答案"]);
-const EXPLANATION_OPEN_TAGS = new Set(["解題", "題意與解題", "解題過程", "判斷依據", "現行法提醒", "爭議說明"]);
+const EXPLANATION_OPEN_TAGS = new Set(["解題", "解題過程", "判斷依據", "現行法提醒", "補充說明", "爭議說明"]);
 const GROUP_TRANSLATION_TAG = "全文翻譯";
 const explanationCache = new Map();
 
@@ -624,6 +624,17 @@ function renderExplanation(question) {
   return `<div class="explanation">${[...open, ...more].join("")}</div>`;
 }
 
+// 選項解析開頭的「正確。／錯誤。」（可帶括號限定，如「正確（依當年法）。」）顯示成標記
+const VERDICT_PATTERN = /^(正確|錯誤)(（[^）]{1,20}）)?[。，；]/;
+
+function renderAnalysisText(text) {
+  const match = (text || "").match(VERDICT_PATTERN);
+  if (!match) return formatText(text || "");
+  const tone = match[1] === "正確" ? "verdict-good" : "verdict-bad";
+  const mark = match[1] === "正確" ? "✓" : "✗";
+  return `<span class="verdict ${tone}">${mark} ${escapeHtml(match[1] + (match[2] || ""))}</span>${formatText(text.slice(match[0].length))}`;
+}
+
 function renderOptionAnalysis(question) {
   if (!question.options.length) return "";
   const items = question.options
@@ -635,7 +646,7 @@ function renderOptionAnalysis(question) {
           <span class="analysis-key">${escapeHtml(option.key)}</span>
           <div>
             <strong>${question.giveAll ? "一律給分" : isAnswer ? "本題答案" : "不是本題答案"}：${formatText(option.text)}</strong>
-            <p>${formatText(question.optionAnalysis?.[option.key] || "")}</p>
+            <p>${renderAnalysisText(question.optionAnalysis?.[option.key])}</p>
           </div>
         </li>
       `;

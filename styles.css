@@ -639,6 +639,27 @@ select:disabled {
   font-size: 13px;
 }
 
+/* 選項解析的判定標記（E2） */
+.verdict {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.verdict-good {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.verdict-bad {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
 /* 密碼關卡 overlay */
 #gate {
   position: fixed;
