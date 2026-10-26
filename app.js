@@ -621,7 +621,15 @@ function renderExplanation(question) {
       (section) =>
         `<details class="exp-more"><summary>${escapeHtml(section.tag)}</summary><div>${formatRichText(section.text)}</div></details>`
     );
-  return `<div class="explanation">${[...open, ...more].join("")}</div>`;
+  return `<div class="explanation">${[...open, ...more].join("")}${renderLawCheck(question)}</div>`;
+}
+
+// 引用法規的題目標示法規查核日期（tools/check_law_dates.py 查核全國法規資料庫等官方資料的日期）
+function renderLawCheck(question) {
+  const match = (question.lawCheckedAt || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return "";
+  const checkedAt = `${match[1]} 年 ${Number(match[2])} 月 ${Number(match[3])} 日`;
+  return `<p class="law-checked">法規查核日期：${checkedAt}（依全國法規資料庫等官方資料）。此後若法規再修正，請以現行條文為準。</p>`;
 }
 
 // 選項解析開頭的「正確。／錯誤。」（可帶括號限定，如「正確（依當年法）。」）顯示成標記

@@ -639,6 +639,15 @@ select:disabled {
   font-size: 13px;
 }
 
+/* 法規查核日期（C3） */
+.law-checked {
+  margin: 10px 0 0;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(102, 112, 133, 0.3);
+  color: var(--muted);
+  font-size: 12px;
+}
+
 /* 選項解析的判定標記（E2） */
 .verdict {
   display: inline-block;
