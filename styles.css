@@ -590,6 +590,55 @@ select:disabled {
   margin-top: 8px;
 }
 
+/* 詳解分段（D1）、可點連結（D2）、題組全文翻譯（D3） */
+.exp-section {
+  margin-top: 8px;
+}
+
+.exp-tag {
+  margin-bottom: 2px;
+  color: var(--accent-dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.exp-more {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(102, 112, 133, 0.3);
+}
+
+.exp-more summary {
+  cursor: pointer;
+  color: var(--accent-dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.exp-more > div {
+  margin-top: 6px;
+}
+
+.explanation a,
+.passage-box a {
+  color: var(--accent-dark);
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+
+.passage-translation {
+  margin-top: 12px;
+  color: #344054;
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.passage-hint {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 /* 密碼關卡 overlay */
 #gate {
   position: fixed;

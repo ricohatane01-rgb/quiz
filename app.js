@@ -54,6 +54,35 @@ function formatText(value) {
   return escapeHtml(value).replace(/\n/g, "<br>");
 }
 
+const URL_PATTERN = /https?:\/\/[^\s<>"'）)】，。、]+/g;
+
+function externalLink(url, label) {
+  return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
+}
+
+// 「名稱：網址」整行顯示成名稱連結；其他行內網址顯示成網域連結
+function linkifyLine(line) {
+  const named = line.match(/^(.+?)[：:]\s*(https?:\/\/\S+)\s*$/);
+  if (named && !/^https?$/.test(named[1].trim())) return externalLink(named[2], named[1].trim());
+  let html = "";
+  let last = 0;
+  for (const match of line.matchAll(URL_PATTERN)) {
+    let host = match[0];
+    try {
+      host = new URL(match[0]).hostname;
+    } catch (error) {
+      // 保留原網址當作連結文字
+    }
+    html += escapeHtml(line.slice(last, match.index)) + externalLink(match[0], host);
+    last = match.index + match[0].length;
+  }
+  return html + escapeHtml(line.slice(last));
+}
+
+function formatRichText(value) {
+  return String(value ?? "").split("\n").map(linkifyLine).join("<br>");
+}
+
 function shuffle(items) {
   const copy = [...items];
   for (let index = copy.length - 1; index > 0; index -= 1) {
@@ -223,7 +252,12 @@ function makePage(id, order, title, units) {
     title,
     passages: units
       .filter((unit) => unit.passage)
-      .map((unit) => ({ title: unit.title, text: unit.passage })),
+      .map((unit) => ({
+        title: unit.title,
+        text: unit.passage,
+        translation: groupTranslation(unit),
+        questionIds: unit.questions.map((question) => question.id),
+      })),
     questions: units.flatMap((unit) => unit.questions),
   };
 }
@@ -543,6 +577,53 @@ function renderOption(question, option) {
   `;
 }
 
+// 詳解依行首【標籤】分段：【答案】不重複顯示（上方已有對錯與正確答案）；重點段落直接展開並排在前面，
+// 其餘（法規依據、名詞補充、白話文、翻譯、參考資料）預設收合；題組的【全文翻譯】改在文章下方顯示一次。
+const EXPLANATION_HIDDEN_TAGS = new Set(["答案"]);
+const EXPLANATION_OPEN_TAGS = new Set(["解題", "題意與解題", "解題過程", "判斷依據", "現行法提醒", "爭議說明"]);
+const GROUP_TRANSLATION_TAG = "全文翻譯";
+const explanationCache = new Map();
+
+function explanationSections(question) {
+  if (!explanationCache.has(question.id)) {
+    const parts = (question.explanation || "").split(/(?:^|\n)【([^】]{1,20})】/);
+    const sections = parts[0].trim() ? [{ tag: "", text: parts[0].trim() }] : [];
+    for (let index = 1; index < parts.length; index += 2) {
+      sections.push({ tag: parts[index], text: (parts[index + 1] || "").trim() });
+    }
+    explanationCache.set(question.id, sections);
+  }
+  return explanationCache.get(question.id);
+}
+
+function groupTranslation(unit) {
+  for (const question of unit.questions) {
+    const section = explanationSections(question).find((item) => item.tag === GROUP_TRANSLATION_TAG);
+    if (section) return section.text;
+  }
+  return "";
+}
+
+function renderExplanation(question) {
+  const inPassageGroup = Boolean(question.passage);
+  const sections = explanationSections(question).filter(
+    (section) =>
+      !EXPLANATION_HIDDEN_TAGS.has(section.tag) && !(inPassageGroup && section.tag === GROUP_TRANSLATION_TAG)
+  );
+  const isOpen = (section) => !section.tag || EXPLANATION_OPEN_TAGS.has(section.tag);
+  const open = sections.filter(isOpen).map(
+    (section) =>
+      `<div class="exp-section">${section.tag ? `<div class="exp-tag">${escapeHtml(section.tag)}</div>` : ""}<div>${formatRichText(section.text)}</div></div>`
+  );
+  const more = sections
+    .filter((section) => !isOpen(section))
+    .map(
+      (section) =>
+        `<details class="exp-more"><summary>${escapeHtml(section.tag)}</summary><div>${formatRichText(section.text)}</div></details>`
+    );
+  return `<div class="explanation">${[...open, ...more].join("")}</div>`;
+}
+
 function renderOptionAnalysis(question) {
   if (!question.options.length) return "";
   const items = question.options
@@ -603,7 +684,7 @@ function renderFeedback(question) {
       <div class="feedback neutral">
         <strong>本題一律給分。</strong>
         ${renderNoticeNotes(question)}
-        <div class="explanation">${formatText(question.explanation)}</div>
+        ${renderExplanation(question)}
         ${renderOptionAnalysis(question)}
       </div>
     `;
@@ -615,7 +696,7 @@ function renderFeedback(question) {
     <div class="feedback ${tone}">
       <strong>${headline}</strong>
       ${renderNoticeNotes(question)}
-      <div class="explanation">${formatText(question.explanation)}</div>
+      ${renderExplanation(question)}
       ${renderOptionAnalysis(question)}
     </div>
   `;
@@ -686,10 +767,16 @@ function renderUnit() {
   const questionCount = unit.questions.length;
   const title = questionCount > 1 ? unit.title : unit.questions[0].id;
   const passage = unit.passages
-    .map(
-      (item) =>
-        `<section class="passage-box"><h2 class="passage-title">${escapeHtml(item.title)}</h2><div class="passage-text">${formatText(item.text)}</div></section>`
-    )
+    .map((item) => {
+      let translation = "";
+      if (item.translation) {
+        const groupRevealed = item.questionIds.every((id) => state.revealed[id] || state.examSubmitted);
+        translation = groupRevealed
+          ? `<details class="exp-more passage-translation"><summary>全文翻譯</summary><div>${formatRichText(item.translation)}</div></details>`
+          : `<p class="passage-hint">本題組全部確認答案（或交卷）後，可在此查看全文翻譯。</p>`;
+      }
+      return `<section class="passage-box"><h2 class="passage-title">${escapeHtml(item.title)}</h2><div class="passage-text">${formatText(item.text)}</div>${translation}</section>`;
+    })
     .join("");
   els.quizContent.innerHTML = [
     renderExamResult(),
