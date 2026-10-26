@@ -568,9 +568,31 @@ function renderOptionAnalysis(question) {
   `;
 }
 
-function renderOutdatedNote(question) {
-  if (!question.outdatedNote) return "";
-  return `<div class="outdated-note">現行法提醒：${formatText(question.outdatedNote)}</div>`;
+// 題目提示：舊法題（不進練習／隨機／模擬考）與爭議題（命題瑕疵，仍依官方答案計分）。
+// 作答前只顯示標籤與提醒，說明內容等作答後才顯示，避免洩題。
+const QUESTION_NOTICES = [
+  {
+    key: "outdatedNote",
+    label: "舊法題",
+    banner: "舊法題：相關法規已修正，本題依當年官方答案計分；現行法差異於作答後說明。",
+    noteTitle: "現行法提醒",
+  },
+  {
+    key: "disputedNote",
+    label: "爭議題",
+    banner: "爭議題：本題命題有瑕疵，依官方公布答案計分；爭議說明於作答後顯示。",
+    noteTitle: "爭議說明",
+  },
+];
+
+function questionNotices(question) {
+  return QUESTION_NOTICES.filter((notice) => question[notice.key]);
+}
+
+function renderNoticeNotes(question) {
+  return questionNotices(question)
+    .map((notice) => `<div class="notice-note">${notice.noteTitle}：${formatText(question[notice.key])}</div>`)
+    .join("");
 }
 
 function renderFeedback(question) {
@@ -580,7 +602,7 @@ function renderFeedback(question) {
     return `
       <div class="feedback neutral">
         <strong>本題一律給分。</strong>
-        ${renderOutdatedNote(question)}
+        ${renderNoticeNotes(question)}
         <div class="explanation">${formatText(question.explanation)}</div>
         ${renderOptionAnalysis(question)}
       </div>
@@ -592,7 +614,7 @@ function renderFeedback(question) {
   return `
     <div class="feedback ${tone}">
       <strong>${headline}</strong>
-      ${renderOutdatedNote(question)}
+      ${renderNoticeNotes(question)}
       <div class="explanation">${formatText(question.explanation)}</div>
       ${renderOptionAnalysis(question)}
     </div>
@@ -615,9 +637,9 @@ function renderQuestion(question) {
         <span class="meta-pill">${escapeHtml(question.subject)}</span>
         <span class="meta-pill">${escapeHtml(modeLabel)}</span>
         ${year}
-        ${question.outdatedNote ? `<span class="meta-pill outdated-pill">舊法題</span>` : ""}
+        ${questionNotices(question).map((notice) => `<span class="meta-pill notice-pill">${notice.label}</span>`).join("")}
       </div>
-      ${question.outdatedNote ? `<div class="outdated-banner">舊法題：相關法規已修正，本題依當年官方答案計分；現行法差異於作答後說明。</div>` : ""}
+      ${questionNotices(question).map((notice) => `<div class="notice-banner">${notice.banner}</div>`).join("")}
       <div class="stem">${formatText(question.stem)}</div>
       <div class="options">${question.options.map((option) => renderOption(question, option)).join("")}</div>
       ${shouldShowCheck ? `

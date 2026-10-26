@@ -565,14 +565,14 @@ select:disabled {
   }
 }
 
-/* 舊法題提示 */
-.outdated-pill {
+/* 舊法題／爭議題提示 */
+.notice-pill {
   background: var(--warn-soft);
   color: var(--warn);
 }
 
-.outdated-banner,
-.outdated-note {
+.notice-banner,
+.notice-note {
   padding: 8px 12px;
   border: 1px solid #fedf89;
   border-radius: 6px;
@@ -582,11 +582,11 @@ select:disabled {
   line-height: 1.6;
 }
 
-.outdated-banner {
+.notice-banner {
   margin-bottom: 12px;
 }
 
-.outdated-note {
+.notice-note {
   margin-top: 8px;
 }
 
