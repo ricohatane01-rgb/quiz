@@ -54,8 +54,8 @@ function formatText(value) {
   return escapeHtml(value).replace(/\n/g, "<br>");
 }
 
-// 題幹中以「｜」開頭的連續行是原卷表格（第一列為表頭），其餘照原文換行顯示
-function formatStem(value) {
+// 題幹與題組文章中以「｜」開頭的連續行是原卷表格（第一列為表頭），其餘照原文換行顯示
+function formatWithTables(value) {
   let html = "";
   let rows = [];
   let afterText = false;
@@ -768,7 +768,7 @@ function renderQuestion(question) {
         ${questionNotices(question).map((notice) => `<span class="meta-pill notice-pill">${notice.label}</span>`).join("")}
       </div>
       ${questionNotices(question).map((notice) => `<div class="notice-banner">${notice.banner}</div>`).join("")}
-      <div class="stem">${formatStem(question.stem)}</div>
+      <div class="stem">${formatWithTables(question.stem)}</div>
       <div class="options">${question.options.map((option) => renderOption(question, option)).join("")}</div>
       ${shouldShowCheck ? `
         <div class="question-actions">
@@ -822,7 +822,7 @@ function renderUnit() {
           ? `<details class="exp-more passage-translation"><summary>全文翻譯</summary><div>${formatRichText(item.translation)}</div></details>`
           : `<p class="passage-hint">本題組全部確認答案（或交卷）後，可在此查看全文翻譯。</p>`;
       }
-      return `<section class="passage-box"><h2 class="passage-title">${escapeHtml(item.title)}</h2><div class="passage-text">${formatText(item.text)}</div>${translation}</section>`;
+      return `<section class="passage-box"><h2 class="passage-title">${escapeHtml(item.title)}</h2><div class="passage-text">${formatWithTables(item.text)}</div>${translation}</section>`;
     })
     .join("");
   els.quizContent.innerHTML = [

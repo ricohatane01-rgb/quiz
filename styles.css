@@ -640,7 +640,7 @@ select:disabled {
   font-size: 13px;
 }
 
-/* 題幹表格（原卷表格；欄多時可左右捲動） */
+/* 題幹與題組文章中的表格（原卷表格；欄多時可左右捲動） */
 .stem-table {
   margin: 10px 0 4px;
   overflow-x: auto;
