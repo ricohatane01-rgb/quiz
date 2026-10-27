@@ -120,7 +120,7 @@
         }
 
         async function fetchEncBytes(onProgress) {
-          const resp = await fetch("bank.enc?v=e07b767b6b");
+          const resp = await fetch("bank.enc?v=923eb3bdd7");
           if (!resp.ok) throw new Error("找不到題庫檔 bank.enc");
           const total = Number(resp.headers.get("Content-Length")) || 0;
           if (!resp.body || !total) {
