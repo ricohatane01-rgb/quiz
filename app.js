@@ -54,6 +54,34 @@ function formatText(value) {
   return escapeHtml(value).replace(/\n/g, "<br>");
 }
 
+// 題幹中以「｜」開頭的連續行是原卷表格（第一列為表頭），其餘照原文換行顯示
+function formatStem(value) {
+  let html = "";
+  let rows = [];
+  let afterText = false;
+  const flushTable = () => {
+    if (!rows.length) return;
+    const cells = (row, tag) => row.map((cell) => `<${tag}>${escapeHtml(cell.trim())}</${tag}>`).join("");
+    const [head, ...body] = rows;
+    html += `<div class="stem-table"><table><thead><tr>${cells(head, "th")}</tr></thead><tbody>${body
+      .map((row) => `<tr>${cells(row, "td")}</tr>`)
+      .join("")}</tbody></table></div>`;
+    rows = [];
+    afterText = false;
+  };
+  for (const line of String(value ?? "").split("\n")) {
+    if (line.startsWith("｜")) {
+      rows.push(line.replace(/^｜|｜$/g, "").split("｜"));
+      continue;
+    }
+    flushTable();
+    html += (afterText ? "<br>" : "") + escapeHtml(line);
+    afterText = true;
+  }
+  flushTable();
+  return html;
+}
+
 const URL_PATTERN = /https?:\/\/[^\s<>"'）)】，。、]+/g;
 
 function externalLink(url, label) {
@@ -740,7 +768,7 @@ function renderQuestion(question) {
         ${questionNotices(question).map((notice) => `<span class="meta-pill notice-pill">${notice.label}</span>`).join("")}
       </div>
       ${questionNotices(question).map((notice) => `<div class="notice-banner">${notice.banner}</div>`).join("")}
-      <div class="stem">${formatText(question.stem)}</div>
+      <div class="stem">${formatStem(question.stem)}</div>
       <div class="options">${question.options.map((option) => renderOption(question, option)).join("")}</div>
       ${shouldShowCheck ? `
         <div class="question-actions">

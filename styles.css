@@ -272,6 +272,7 @@ select:disabled {
 
 .quiz-content {
   display: grid;
+  grid-template-columns: minmax(0, 1fr); /* 寬表格在框內左右捲動，不撐寬整頁 */
   gap: 14px;
 }
 
@@ -637,6 +638,34 @@ select:disabled {
   margin: 10px 0 0;
   color: var(--muted);
   font-size: 13px;
+}
+
+/* 題幹表格（原卷表格；欄多時可左右捲動） */
+.stem-table {
+  margin: 10px 0 4px;
+  overflow-x: auto;
+}
+
+.stem-table table {
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.stem-table th,
+.stem-table td {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.stem-table th {
+  background: var(--panel-soft);
+  font-weight: 700;
+}
+
+.stem-table td:first-child {
+  font-weight: 600;
 }
 
 /* 法規查核日期（C3） */
